@@ -1,0 +1,61 @@
+---
+- name: patches
+  hosts: 192.168.1.110
+  become_user: root
+  become: true
+  tasks:
+
+  - name: Block RSS feeds on wordpress
+    blockinfile:
+      path: /var/www/html/wordpress/wp-content/themes/twentyseventeen//functions.php
+      backup: yes
+      block: |
+        add_actions('do_feed', 'shift8_security_disable_feed', 1);
+        add_actions('do_feed_rdf', 'shift8_security_disable_feed', 1);
+        add_actions('do_feed_rss', 'shift8_security_disable_feed', 1);
+        add_actions('do_feed_rss2', 'shift8_security_disable_feed', 1);
+        add_actions('do_feed_atom', 'shift8_security_disable_feed', 1);
+        add_actions('do_feed_rss2_comments', 'shift8_security_disable_feed', 1);
+        add_actions('do_feed_atom_comments', 'shuft8_security_disable_feed', 1);
+        add_actions('the_generator', 'shift8_security_remove_wp_version_rss');
+        function shift8_security_remove_wp_version_rss() {
+                 return '';
+        }
+        function shift8_security_disable_feed() {
+                 wp_die( __('No feed available, please visit the <a href="'. esc_url(home_url( '/' ) ) .'">homepage</a>! ) );
+        }
+  - name: Update IPTABLES
+    command:
+      iptables -A INPUT -p tcp -i eth0 -m state --state NEW -m recent --set
+
+  - name: Update IPTABLES - Drop Packets
+    command:
+      iptables -A INPUT -p tcp -i eth0 -m state --state NEW -m recent --update --seconds 30 --hitcount 10 -j DROP
+
+  - name: Install pwquality
+    command:
+      sudo apt-get install -y libpam-pwquality
+
+  - name: Replace difol in pwquality.conf
+    replace:
+      path: /etc/security/pwquality.conf
+      regexp: '#(\s+)difok = 1'
+      replace: 'difok = 1'
+
+  - name: Replace minlen in pwquality
+    replace:
+      path: /etc/security/pwquality.conf
+      regexp: '#(\s+)minclass = 8'
+      replace: 'minlen = 12'
+
+  - name: Replace minclass in pwqaulity
+    replace:
+      path: /etc/security/pwquality.conf
+      regexp: '#(\s+)minclass = 0'
+      replace: 'minclass = 3'
+
+  - name: Replace dictcheck in pwquality
+    replace:
+      path: /etc/security/pwquality.conf
+      regexp: '#(\s+)dictcheck = 1'
+      replace: 'dictcheck = 1'
